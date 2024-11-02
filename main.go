@@ -96,8 +96,55 @@ func login(w http.ResponseWriter, r *http.Request) {
 	users[username] = user
 
 	fmt.Fprintln(w, "Login successful!")
+	fmt.Println(user.CSRFToken) // probably shouldn't print this to the console, just did it to help find the token
 }
 
-func logout(w http.ResponseWriter, r *http.Request) {}
+func protected(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		er := http.StatusMethodNotAllowed
+		http.Error(w, "Invalid request method", er)
+		return
+	}
 
-func protected(w http.ResponseWriter, r *http.Request) {}
+	if err := Authorize(r); err != nil {
+		er := http.StatusUnauthorized
+		http.Error(w, "Unauthorized", er)
+		return
+	}
+
+	username := r.FormValue("username")
+	fmt.Fprintf(w, "CSRF validation successful! Welcome, %s", username)
+
+}
+
+func logout(w http.ResponseWriter, r *http.Request) {
+	if err := Authorize(r); err != nil {
+		er := http.StatusUnauthorized
+		http.Error(w, "Unauthorized", er)
+		return
+	}
+
+	// Clear cookie
+	http.SetCookie(w, &http.Cookie{
+		Name:     "session_token",
+		Value:    "",
+		Expires:  time.Now().Add(-time.Hour),
+		HttpOnly: true,
+	})
+
+	http.SetCookie(w, &http.Cookie{
+		Name:     "csrf_token",
+		Value:    "",
+		Expires:  time.Now().Add(-time.Hour),
+		HttpOnly: false,
+	})
+
+	// Clear the tokens from the database
+	username := r.FormValue("username")
+	user, _ := users[username]
+	user.SessionToken = ""
+	user.CSRFToken = ""
+	users[username] = user
+
+	fmt.Fprintln(w, "Logged out successfully!")
+}
