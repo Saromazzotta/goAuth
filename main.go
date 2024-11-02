@@ -141,7 +141,7 @@ func logout(w http.ResponseWriter, r *http.Request) {
 
 	// Clear the tokens from the database
 	username := r.FormValue("username")
-	user, _ := users[username]
+	user, _ := users[username] // not sure if you need the _
 	user.SessionToken = ""
 	user.CSRFToken = ""
 	users[username] = user
